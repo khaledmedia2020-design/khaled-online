@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#3a2f8f"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap"><title>خالد أونلاين – المبيعات والفواتير</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--g:#3a2f8f;--g2:#ecebf8;--bg:#f4f6f5;--card:#fff;--tx:#1b2621;--mu:#6b7a73;--bd:#dde5e1;--rd:#c0392b}
 :root:not([data-theme="light"]){}
@@ -183,13 +184,28 @@ return `*خالد أونلاين*\n${c.addr?c.addr+"\n":""}${c.phone?"📞 "+c.p
 function waLink(s){let p=(s.phone||"").replace(/\D/g,"");if(p.startsWith("00"))p=p.slice(2);else if(p.startsWith("0"))p="20"+p.slice(1);
 return "https://wa.me/"+p+"?text="+encodeURIComponent(invText(s))}
 function invView(s){const c=S.cfg;
-return `<div class="inv"><div style="text-align:center"><img src="${LOGO}" alt="خالد أونلاين" style="width:100%;max-width:260px;border-radius:12px"><h2>خالد أونلاين</h2>${c.addr?`<div>${esc(c.addr)}</div>`:""}${c.phone?`<div>📞 ${esc(c.phone)}</div>`:""}</div><hr>
+return `<div class="inv" id="invCard"><div style="text-align:center"><img src="${LOGO}" alt="خالد أونلاين" style="width:100%;max-width:260px;border-radius:12px"><h2>خالد أونلاين</h2>${c.addr?`<div>${esc(c.addr)}</div>`:""}${c.phone?`<div>📞 ${esc(c.phone)}</div>`:""}</div><hr>
 <div class="r"><span>فاتورة رقم</span><b>#${pad(s.no||0)}</b></div><div class="r"><span>التاريخ</span><span>${new Date(s.date).toLocaleString("ar-EG")}</span></div>
 ${s.name?`<div class="r"><span>العميل</span><span>${esc(s.name)}</span></div>`:""}${s.phone?`<div class="r"><span>الهاتف</span><span>${esc(s.phone)}</span></div>`:""}
 <div class="h"><table><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>${s.items.map(i=>`<tr><td>${esc(i.name)}</td><td>${i.q}</td><td>${m(i.price)}</td><td>${m(i.price*i.q)}</td></tr>`).join("")}</table></div>
 <div class="r"><span>المجموع</span><span>${m(s.sub)}</span></div>${s.tax?`<div class="r"><span>الضريبة</span><span>${m(s.tax)}</span></div>`:""}<div class="r" style="font-size:18px"><b>الإجمالي</b><b>${m(s.total)}</b></div>
 <p style="text-align:center;color:#555">${esc(c.note||"")}</p>
-<div class="acts">${s.phone?`<a href="${waLink(s)}" target="_blank" rel="noopener">إرسال واتساب</a>`:`<button class="s" onclick="askPhone(${s.id})">إضافة رقم العميل</button>`}<button onclick="shareInv(${s.id})">مشاركة / نسخ</button><button class="s" onclick="window.print()">طباعة / PDF</button><button class="s" onclick="view=null;render()">رجوع</button></div></div>`}
+<div class="acts">${s.phone?`<button onclick="shareImg(${s.id},true)">📷 واتساب (صورة)</button>`:`<button class="s" onclick="askPhone(${s.id})">إضافة رقم العميل</button>`}<button class="s" onclick="shareImg(${s.id},false)">مشاركة / حفظ صورة</button></div>
+<div class="acts"><button class="s" onclick="window.print()">طباعة / PDF</button><button class="s" onclick="view=null;render()">رجوع</button></div>
+<div id="busy${s.id}" style="display:none;text-align:center;color:var(--mu);padding:8px 0">جاري تجهيز الصورة…</div></div>`}
+async function invImg(id){const el=document.getElementById("invCard"),b=document.getElementById("busy"+id);
+b.style.display="block";
+try{const cv=await html2canvas(el,{scale:2,backgroundColor:"#ffffff",useCORS:true});
+return await new Promise(res=>cv.toBlob(res,"image/png"));}finally{b.style.display="none"}}
+async function shareImg(id,wa){const s=S.sales.find(x=>x.id==id);
+const blob=await invImg(id);if(!blob){alert("تعذر إنشاء الصورة");return}
+const file=new File([blob],"فاتورة-"+pad(s.no||0)+".png",{type:"image/png"});
+if(navigator.canShare&&navigator.canShare({files:[file]})){
+try{await navigator.share({files:[file],title:"فاتورة "+pad(s.no||0)});return}catch(e){if(e&&e.name=="AbortError")return}}
+const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();
+setTimeout(()=>URL.revokeObjectURL(url),4000);
+if(wa){alert("اتحفظت صورة الفاتورة عندك. هيفتح دلوقتي شات العميل على واتساب، أرفق الصورة من المعرض وابعتها.");window.open(waLink(s),"_blank")}
+else alert("اتحفظت صورة الفاتورة عندك، تقدر ترفقها في أي تطبيق.")}
 function askPhone(id){const s=S.sales.find(x=>x.id==id),p=prompt("رقم واتساب العميل:");if(p){s.phone=p;ensureC(s.name,p);save();render()}}
 async function shareInv(id){const s=S.sales.find(x=>x.id==id),t=invText(s).replace(/\*/g,"");
 try{if(navigator.share){await navigator.share({title:"فاتورة خالد أونلاين",text:t});return}}catch(e){}
