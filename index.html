@@ -74,6 +74,8 @@ nav button{font-size:10px!important;padding:8px 0!important}nav button svg{width
 .tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{flex:1;background:var(--g2);color:var(--g);padding:9px 4px}.tabs button.on{background:linear-gradient(135deg,#3a2f8f,#4f5fd0);color:#fff}
 .ri{display:inline-flex}.ri svg{width:22px;height:22px}.sb{display:flex;align-items:center;justify-content:center;gap:8px}
 .badge{display:inline-block}.st div{min-width:0}
+.neg{color:var(--rd)!important}
+.hint{color:var(--mu);font-size:12.5px;margin:-2px 0 10px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -102,6 +104,7 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 const old=()=>S.sales.length&&(!S.lastBackup||Date.now()-S.lastBackup>7*864e5);
 const $=s=>document.querySelector(s),cur=()=>S.cfg.cur;
 const m=n=>(Math.round(n*100)/100).toLocaleString("ar-EG")+" "+cur();
+const mN=n=>n<0?`<b class="neg">⚠️ ${m(n)}</b>`:`<b>${m(n)}</b>`;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const IC={buy:'<path d="M12 3v10M8 9l4 4 4-4M4 15v4h16v-4"/>',exp:'<path d="M3 7h16a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2zM3 7l12-4v4M17 14h2"/>',more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',scan:'<path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M4 12h16"/>',cust:'<circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M17 4a3.5 3.5 0 010 7M22 21c0-3-2-5-5-5.5"/>',home:'<path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>',pos:'<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12h11L21 7H6"/>',inv:'<path d="M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',fat:'<path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/>',rep:'<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',set:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'};
 const ic=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[k]}</svg>`;
@@ -211,6 +214,16 @@ setTimeout(()=>URL.revokeObjectURL(url),4000);
 if(wa){alert("اتحفظت صورة الفاتورة عندك. هيفتح دلوقتي شات العميل على واتساب، أرفق الصورة من المعرض وابعتها.");window.open(waLink(s),"_blank")}
 else alert("اتحفظت صورة الفاتورة عندك، تقدر ترفقها في أي تطبيق.")}
 function askPhone(id){const s=S.sales.find(x=>x.id==id),p=prompt("رقم واتساب العميل:");if(p){s.phone=p;ensureC(s.name,p);save();render()}}
+async function shareImgEl(elId,busyId,filename,shareTitle){const el=document.getElementById(elId),b=document.getElementById(busyId);
+b.style.display="block";let blob=null;
+try{const im=el.querySelector("img");if(im&&im.decode)try{await im.decode()}catch(e){}
+const cv=await html2canvas(el,{scale:2,backgroundColor:"#ffffff",useCORS:true,scrollX:0,scrollY:-window.scrollY,windowWidth:document.documentElement.clientWidth,ignoreElements:e=>e.classList&&(e.classList.contains("acts")||(e.id||"").startsWith("busy"))});
+blob=await new Promise(res=>cv.toBlob(res,"image/png"))}finally{b.style.display="none"}
+if(!blob){alert("تعذر إنشاء الصورة");return}
+const file=new File([blob],filename,{type:"image/png"});
+if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:shareTitle});return}catch(e){if(e&&e.name=="AbortError")return}}
+const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+setTimeout(()=>URL.revokeObjectURL(url),4000);alert("اتحفظت الصورة عندك، تقدر ترفقها في أي تطبيق.")}
 async function shareInv(id){const s=S.sales.find(x=>x.id==id),t=invText(s).replace(/\*/g,"");
 try{if(navigator.share){await navigator.share({title:"فاتورة خالد أونلاين",text:t});return}}catch(e){}
 try{await navigator.clipboard.writeText(t);alert("تم نسخ نص الفاتورة ✅")}catch(e){prompt("انسخ نص الفاتورة:",t)}}
@@ -263,7 +276,12 @@ function addBL(){const id=$("#bp").value,nn=$("#bn").value.trim(),q=+$("#bq").va
 if(!(q>0)){alert("اكتب الكمية");return}if(!id&&!nn){alert("اختر منتجًا أو اكتب اسم منتج جديد");return}
 const p=id&&S.products.find(x=>x.id==id);let np=null;
 if(!p){const sp=+$("#bsp").value;if(!sp){alert("اكتب سعر البيع للمنتج الجديد");return}np={price:sp,code:bnc};bnc=""}
-bc.push({id:p?p.id:null,name:p?p.name:nn,cost:k||(p?p.cost:0),q,np});render()}
+bc.push({id:p?p.id:null,name:p?p.name:nn,cost:k||(p?p.cost:0),q,np});render();
+const sel=$("#bp");if(sel)sel.focus()}
+function editBL(i){const l=bc[i];bc.splice(i,1);render();
+if(l.id)$("#bp").value=l.id;else $("#bn").value=l.name;
+$("#bq").value=l.q;$("#bk").value=l.cost||"";if(l.np)$("#bsp").value=l.np.price||"";
+$("#bq").focus()}
 function saveBuy(){if(!bc.length){alert("الفاتورة فاضية");return}
 const tot=bc.reduce((a,l)=>a+l.cost*l.q,0),sup=bs.trim();
 const items=bc.map(l=>{let p=l.id&&S.products.find(x=>x.id==l.id);
@@ -275,22 +293,25 @@ S.buys.unshift({id:Date.now(),no:++S.bseq,date:Date.now(),sup,items,total:tot,pa
 bc=[];bs="";bpd="";save();alert("تم حفظ فاتورة الشراء وإضافة الكميات للمخزن ✅");render()}
 function buy(){if(bv){const b=S.buys.find(x=>x.id==bv);if(b)return buyView(b)}
 const tot=bc.reduce((a,l)=>a+l.cost*l.q,0);
-return `<div class="card"><b>فاتورة شراء من مورد</b><div class="f" style="margin-top:8px">
+return `<div class="card"><b>فاتورة شراء من مورد</b><p class="hint">هتقدر تضيف كذا صنف للفاتورة دي، صنف بعد التاني: اكتب بيانات الصنف واضغط "إضافة للفاتورة"، وكرر نفس الخطوة لكل صنف. وفي الآخر اضغط "حفظ الفاتورة" مرة واحدة عشان الفاتورة كلها (بكل أصنافها) تتسجل وتضاف للمخزن دفعة واحدة.</p><div class="f" style="margin-top:8px">
 <input class="w" list="sl" placeholder="اسم المورد" value="${esc(bs)}" oninput="bs=this.value"><datalist id="sl">${S.sups.map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
 <select class="w" id="bp" onchange="bpick()"><option value="">— اختر منتجًا موجودًا —</option>${S.products.map(p=>`<option value="${p.id}">${esc(p.name)} (متاح ${p.qty})</option>`).join("")}</select>
 <input class="w" id="bn" placeholder="أو اكتب اسم منتج جديد">
 <input id="bq" type="number" inputmode="decimal" placeholder="الكمية"><input id="bk" type="number" inputmode="decimal" placeholder="سعر الشراء للوحدة">
 <input class="w" id="bsp" type="number" inputmode="decimal" placeholder="سعر البيع (للمنتج الجديد فقط)">
-${sbtn("bscan()","مسح QR للمنتج")}<button class="w" onclick="addBL()">+ إضافة للفاتورة</button></div></div>
-<div class="card"><b>بنود الفاتورة (${bc.length})</b>${bc.map((l,i)=>`<div class="row"><span>${esc(l.name)}${l.np?" <span class=badge>جديد</span>":""}<br><small>${l.q} × ${m(l.cost)}</small></span><span><b>${m(l.q*l.cost)}</b><button class="d" onclick="bc.splice(${i},1);render()">✕</button></span></div>`).join("")||'<div class="empty">لم تضف بنودًا بعد</div>'}
+${sbtn("bscan()","مسح QR للمنتج")}<button class="w" onclick="addBL()">+ إضافة الصنف ده للفاتورة</button></div></div>
+<div class="card"><b>بنود الفاتورة الحالية (${bc.length})</b><p class="hint">${bc.length?"دي كل الأصناف اللي هتتسجل مع بعض في فاتورة شراء واحدة. تقدر تعدّل أو تحذف أي صنف قبل الحفظ.":"لسه ملحقتش تضيف صنف. أضف صنف واحد على الأقل."}</p>${bc.map((l,i)=>`<div class="row"><span>${esc(l.name)}${l.np?" <span class=badge>جديد</span>":""}<br><small>${l.q} × ${m(l.cost)}</small></span><span><b>${m(l.q*l.cost)}</b><button class="s" style="padding:4px 8px;margin-inline:4px" onclick="editBL(${i})">تعديل</button><button class="d" onclick="bc.splice(${i},1);render()">✕</button></span></div>`).join("")||'<div class="empty">لم تضف بنودًا بعد</div>'}
 <div class="tot"><span>الإجمالي</span><span>${m(tot)}</span></div>
 <input type="number" inputmode="decimal" placeholder="المدفوع للمورد (فاضي = كامل المبلغ)" value="${esc(bpd)}" oninput="bpd=this.value">
-<button style="width:100%;margin-top:8px" onclick="saveBuy()">حفظ الفاتورة وإضافة الكميات للمخزن</button></div>
-<div class="card"><b>فواتير الشراء (${S.buys.length})</b>${S.buys.map(b=>`<div class="row" style="cursor:pointer" onclick="bv=${b.id};render();scrollTo(0,0)"><span>شراء #${pad(b.no)} ${b.sup?"· "+esc(b.sup):""}<br><small>${dt(b.date)}</small></span><b>${m(b.total)}</b></div>`).join("")||'<div class="empty">لا توجد فواتير شراء</div>'}</div>`}
-function buyView(b){return `<div class="card"><b>فاتورة شراء #${pad(b.no)}</b><div class="row"><span>المورد</span><span>${esc(b.sup||"—")}</span></div><div class="row"><span>التاريخ</span><span>${dt(b.date)}</span></div>
-${b.items.map(i=>`<div class="row"><span>${esc(i.name)}<br><small>${i.q} × ${m(i.cost)}</small></span><b>${m(i.q*i.cost)}</b></div>`).join("")}
-<div class="tot"><span>الإجمالي</span><span>${m(b.total)}</span></div><div class="row"><span>المدفوع</span><span>${m(b.paid)}</span></div><div class="row"><span>المتبقي للمورد</span><b>${m(b.total-b.paid)}</b></div>
-<div class="acts"><button class="s" onclick="bv=null;render()">رجوع</button><button class="s" onclick="delBuy(${b.id})">حذف (يخصم الكميات)</button></div></div>`}
+<button style="width:100%;margin-top:8px" onclick="saveBuy()">حفظ الفاتورة كاملة (${bc.length} صنف) وإضافة الكميات للمخزن</button></div>
+<div class="card"><b>فواتير الشراء (${S.buys.length})</b>${S.buys.map(b=>`<div class="row" style="cursor:pointer" onclick="bv=${b.id};render();scrollTo(0,0)"><span>شراء #${pad(b.no)} ${b.sup?"· "+esc(b.sup):""}<br><small>${dt(b.date)} · ${b.items.length} صنف</small></span><b>${m(b.total)}</b></div>`).join("")||'<div class="empty">لا توجد فواتير شراء</div>'}</div>`}
+function buyView(b){return `<div class="inv" id="buyCard"><div style="text-align:center"><img src="${LOGO}" alt="خالد أونلاين" width="200" height="198" style="display:block;margin:0 auto;width:200px;height:198px;border-radius:12px"></div><hr>
+<div class="r"><span>فاتورة شراء رقم</span><b>#${pad(b.no)}</b></div><div class="r"><span>التاريخ</span><span>${dt(b.date)}</span></div><div class="r"><span>المورد</span><span>${esc(b.sup||"—")}</span></div>
+<div class="h"><table><tr><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr>${b.items.map(i=>`<tr><td>${esc(i.name)}</td><td>${i.q}</td><td>${m(i.cost)}</td><td>${m(i.q*i.cost)}</td></tr>`).join("")}</table></div>
+<div class="r" style="font-size:18px"><b>الإجمالي</b><b>${m(b.total)}</b></div><div class="r"><span>المدفوع للمورد</span><span>${m(b.paid)}</span></div><div class="r"><span>المتبقي للمورد</span>${mN(b.total-b.paid)}</div>
+<div class="acts"><button class="s" onclick="shareImgEl('buyCard','busyBuy','فاتورة-شراء-${pad(b.no)}.png','فاتورة شراء ${pad(b.no)}')">📷 مشاركة / حفظ صورة</button><button class="s" onclick="window.print()">طباعة / PDF</button></div>
+<div class="acts"><button class="s" onclick="bv=null;render()">رجوع</button><button class="s" onclick="delBuy(${b.id})">حذف (يخصم الكميات)</button></div>
+<div id="busyBuy" style="display:none;text-align:center;color:var(--mu);padding:8px 0">جاري تجهيز الصورة…</div></div>`}
 function delBuy(id){const b=S.buys.find(x=>x.id==id);if(!b||!confirm("حذف الفاتورة؟ هيتم خصم كمياتها من المخزن."))return;
 b.items.forEach(i=>{const p=S.products.find(x=>x.id==i.id);if(p)p.qty-=i.q});S.buys=S.buys.filter(x=>x.id!=id);bv=null;save();render()}
 function delInv(id){const s=S.sales.find(x=>x.id==id);if(!s||!confirm("حذف الفاتورة؟ هيتم إرجاع الكميات للمخزن."))return;
@@ -301,24 +322,24 @@ S.exps.unshift({id:Date.now(),date:Date.now(),amt:a,cat:$("#ec").value,note:$("#
 function delExp(id){if(confirm("حذف المصروف؟")){S.exps=S.exps.filter(e=>e.id!=id);save();render()}}
 function exp(){const p=pnl(rfrom("month"));
 return `<div class="card"><b>تسجيل مصروف / سحب</b><div class="f" style="margin-top:8px"><input id="ea" type="number" inputmode="decimal" placeholder="المبلغ"><select id="ec">${EC.map(c=>`<option>${c}</option>`).join("")}</select><input class="w" id="en" placeholder="ملاحظة (اختياري)"><button class="w" onclick="addExp()">تسجيل وخصم من الربح</button></div></div>
-<div class="card st"><div><span>ربح الشهر</span><b>${m(p.gp)}</b></div><div><span>مصروفات الشهر</span><b>${m(p.exT)}</b></div><div style="grid-column:1/-1"><span>صافي الربح بعد المصروفات (هذا الشهر)</span><b>${m(p.net)}</b></div></div>
+<div class="card st"><div><span>ربح الشهر</span><b>${m(p.gp)}</b></div><div><span>مصروفات الشهر</span><b>${m(p.exT)}</b></div><div style="grid-column:1/-1"><span>صافي الربح بعد المصروفات (هذا الشهر)</span>${mN(p.net)}</div></div>
 <div class="card"><b>سجل المصروفات</b>${S.exps.slice(0,60).map(e=>`<div class="row"><span>${esc(e.cat)}${e.note?" · "+esc(e.note):""}<br><small>${dt(e.date)}</small></span><span><b>${m(e.amt)}</b><button class="d" onclick="delExp(${e.id})">✕</button></span></div>`).join("")||'<div class="empty">لا توجد مصروفات</div>'}</div>`}
 /* Reports */
 function rep(){const tb=[["sales","المبيعات"],["stock","المخزن"],["bud","الميزانية"]];
 return `<div class="card"><div class="tabs">${tb.map(([k,l])=>`<button class="${k==rt?"on":""}" onclick="rt='${k}';render()">${l}</button>`).join("")}</div>${rt!="stock"?`<select onchange="rng=this.value;render()">${RO.map(([k,l])=>`<option value="${k}" ${k==rng?"selected":""}>${l}</option>`).join("")}</select>`:""}</div>`+(rt=="stock"?repStock():rt=="bud"?repBud():repSales())}
 function repSales(){const p=pnl(rfrom(rng)),ss=p.ss,top={};ss.forEach(s=>s.items.forEach(i=>top[i.name]=(top[i.name]||0)+i.q));const tp=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,5);
-return `<div class="card st"><div><span>الإيرادات</span><b>${m(p.rev)}</b></div><div><span>تكلفة البضاعة</span><b>${m(p.cogs)}</b></div><div><span>إجمالي الربح</span><b>${m(p.gp)}</b></div><div><span>المصروفات</span><b>${m(p.exT)}</b></div><div style="grid-column:1/-1"><span>صافي الربح بعد المصروفات</span><b>${m(p.net)}</b></div><div><span>هامش الصافي</span><b>${p.rev?Math.round(p.net/p.rev*100):0}%</b></div><div><span>عدد الفواتير</span><b>${ss.length}</b></div></div>
+return `<div class="card st"><div><span>الإيرادات</span><b>${m(p.rev)}</b></div><div><span>تكلفة البضاعة</span><b>${m(p.cogs)}</b></div><div><span>إجمالي الربح</span><b>${m(p.gp)}</b></div><div><span>المصروفات</span><b>${m(p.exT)}</b></div><div style="grid-column:1/-1"><span>صافي الربح بعد المصروفات</span>${mN(p.net)}</div><div><span>هامش الصافي</span><b class="${p.net<0?"neg":""}">${p.rev?Math.round(p.net/p.rev*100):0}%</b></div><div><span>عدد الفواتير</span><b>${ss.length}</b></div></div>
 <div class="card"><b>الأكثر مبيعًا</b>${tp.map(([n,q])=>`<div class="row"><span>${esc(n)}</span><b>${q}</b></div>`).join("")||'<div class="empty">لا توجد مبيعات</div>'}</div>
 <div class="card"><b>فواتير الفترة</b>${ss.slice(0,20).map(s=>`<div class="row" style="cursor:pointer" onclick="view=${s.id};tab='fat';render()"><span>#${pad(s.no||0)} · ${dt(s.date)}<br><small>${s.items.map(i=>esc(i.name)+"×"+i.q).join("، ")}</small></span><b>${m(s.total)}</b></div>`).join("")||'<div class="empty">لا توجد فواتير</div>'}${p.tx?`<small>إجمالي الضريبة: ${m(p.tx)}</small>`:""}</div>`}
 function repStock(){const P=S.products,c=P.reduce((a,p)=>a+p.cost*p.qty,0),s=P.reduce((a,p)=>a+p.price*p.qty,0),u=P.reduce((a,p)=>a+p.qty,0),low=P.filter(p=>p.qty<=5);
-return `<div class="card st"><div><span>إجمالي المخزن (بسعر التكلفة)</span><b>${m(c)}</b></div><div><span>إجمالي المخزن (بسعر البيع)</span><b>${m(s)}</b></div><div style="grid-column:1/-1"><span>الربح المتوقع بعد بيع المخزن</span><b>${m(s-c)}</b></div><div><span>نسبة الربح</span><b>${s?Math.round((s-c)/s*100):0}%</b></div><div><span>الأصناف / القطع</span><b>${P.length} / ${u}</b></div></div>
+return `<div class="card st"><div><span>إجمالي المخزن (بسعر التكلفة)</span><b>${m(c)}</b></div><div><span>إجمالي المخزن (بسعر البيع)</span><b>${m(s)}</b></div><div style="grid-column:1/-1"><span>الربح المتوقع بعد بيع المخزن</span>${mN(s-c)}</div><div><span>نسبة الربح</span><b>${s?Math.round((s-c)/s*100):0}%</b></div><div><span>الأصناف / القطع</span><b>${P.length} / ${u}</b></div></div>
 <div class="card"><b>أصناف قاربت على النفاد (${low.length})</b>${low.map(p=>`<div class="row"><span>${esc(p.name)}</span><span class="badge">باقي ${p.qty}</span></div>`).join("")||'<div class="empty">المخزون تمام ✅</div>'}</div>
 <div class="card"><b>تفاصيل المخزن</b>${[...P].sort((a,b)=>b.cost*b.qty-a.cost*a.qty).map(p=>`<div class="row"><span>${esc(p.name)}<br><small>${p.qty} قطعة · تكلفة ${m(p.cost*p.qty)}</small></span><span style="text-align:end"><b>${m(p.price*p.qty)}</b><br><small>ربح ${m((p.price-p.cost)*p.qty)}</small></span></div>`).join("")||'<div class="empty">لا توجد منتجات</div>'}</div>`}
 function repBud(){const f=rfrom(rng),p=pnl(f),bu=S.buys.filter(b=>b.date>=f),bt=bu.reduce((a,b)=>a+b.total,0),bp=bu.reduce((a,b)=>a+b.paid,0),due=S.buys.reduce((a,b)=>a+b.total-b.paid,0),stock=S.products.reduce((a,x)=>a+x.cost*x.qty,0),cashIn=p.ss.reduce((a,s)=>a+s.total,0),cat={};p.ex.forEach(e=>cat[e.cat]=(cat[e.cat]||0)+e.amt);
-return `<div class="card"><b>الأرباح والخسائر</b><div class="row"><span>الإيرادات</span><b>${m(p.rev)}</b></div><div class="row"><span>تكلفة البضاعة المباعة</span><span>${m(p.cogs)}</span></div><div class="row"><span>إجمالي الربح</span><b>${m(p.gp)}</b></div><div class="row"><span>المصروفات</span><span>${m(p.exT)}</span></div><div class="tot"><span>صافي الربح</span><span>${m(p.net)}</span></div></div>
+return `<div class="card"><b>الأرباح والخسائر</b><div class="row"><span>الإيرادات</span><b>${m(p.rev)}</b></div><div class="row"><span>تكلفة البضاعة المباعة</span><span>${m(p.cogs)}</span></div><div class="row"><span>إجمالي الربح</span><b>${m(p.gp)}</b></div><div class="row"><span>المصروفات</span><span>${m(p.exT)}</span></div><div class="tot"><span>صافي الربح</span>${mN(p.net)}</div></div>
 <div class="card"><b>المصروفات حسب البند</b>${Object.entries(cat).map(([k,v])=>`<div class="row"><span>${esc(k)}</span><b>${m(v)}</b></div>`).join("")||'<div class="empty">لا توجد مصروفات</div>'}</div>
 <div class="card"><b>المشتريات والموردين</b><div class="row"><span>مشتريات الفترة</span><span>${m(bt)}</span></div><div class="row"><span>المدفوع للموردين</span><span>${m(bp)}</span></div><div class="row"><span>مستحق للموردين (إجمالي)</span><b>${m(due)}</b></div></div>
-<div class="card"><b>المركز المالي</b><div class="row"><span>قيمة المخزون الحالي (تكلفة)</span><b>${m(stock)}</b></div><div class="row"><span>السيولة التقديرية للفترة</span><b>${m(cashIn-bp-p.exT)}</b></div><small style="color:var(--mu)">السيولة = المبيعات − المشتريات المدفوعة − المصروفات</small></div>`}
+<div class="card"><b>المركز المالي</b><div class="row"><span>قيمة المخزون الحالي (تكلفة)</span><b>${m(stock)}</b></div><div class="row"><span>السيولة التقديرية للفترة</span>${mN(cashIn-bp-p.exT)}</div><small style="color:var(--mu)">السيولة = المبيعات − المشتريات المدفوعة − المصروفات</small></div>`}
 
 render();
 </script>
